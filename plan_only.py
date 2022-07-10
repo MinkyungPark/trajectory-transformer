@@ -45,8 +45,6 @@ print(f'Dataset [{args.dataset}] / Mode : [{args.mode}]')
 
 # dconf = pickle.load(open(loadpath + '/data_config.pkl', 'rb'))
 dconf = dill.load(open(loadpath + '/data_config.dill', 'rb'))
-discretizer = dconf.discretizer
-discount = dconf.discount
 # s_dim = dconf.observation_dim
 # a_dim = dconf.action_dim
 try:
@@ -64,9 +62,9 @@ model.to(torch.device('cuda'))
 
 env = load_environment(args.dataset)
 
-score, t, total_reward, terminal = plan(s_dim, a_dim, args.mode, args.plan_freq, discretizer, 
-        args.prefix_context, model, args.horizon, args.beam_width, args.n_expand,
-        discount, args.max_context_transitions, env,
+score, t, total_reward, terminal = plan(s_dim, a_dim, args.mode, args.plan_freq, dconf.discretizer, 
+        dconf.shuff_ind, args.prefix_context, model, args.horizon, args.beam_width, args.n_expand,
+        dconf.discount, args.max_context_transitions, env,
         args.k_obs, args.k_act, args.cdf_obs, args.cdf_act, args.percentile)
 
 json_path = check_dir(os.path.join(loadpath, 'plan'))

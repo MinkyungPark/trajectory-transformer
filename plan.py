@@ -20,7 +20,7 @@ def recon_index(obs=np.array([]), act=np.array([]), type=None, shuff_ind=None, s
         pass # error
 
 
-def plan(s_dim, a_dim, mode, plan_freq, discretizer, 
+def plan(s_dim, a_dim, mode, plan_freq, discretizer, shuff_ind,
         prefix_context, model, horizon, beam_width, n_expand,
         discount, max_context_transitions, env,
         k_obs=1, k_act=None, cdf_obs=None, cdf_act=0.6, percentile='mean', T=None):
@@ -35,7 +35,7 @@ def plan(s_dim, a_dim, mode, plan_freq, discretizer,
         if t % plan_freq == 0:
             ## concatenate previous transitions and current observations to input to model
             if mode == 'shuffle':
-                observation = recon_index(obs=observation)
+                observation = recon_index(obs=observation, shuff_ind=shuff_ind, s_dim=s_dim, a_dim=a_dim)
             if mode == 'reverse':
                 observation = recon_index(obs=observation, type='reverse')
             
@@ -58,7 +58,7 @@ def plan(s_dim, a_dim, mode, plan_freq, discretizer,
         action = extract_actions(sequence_recon, s_dim, a_dim, t=0)
 
         if mode == 'shuffle':
-            step_action = recon_index(act=action, type='reconstruct') 
+            step_action = recon_index(act=action, type='reconstruct', shuff_ind=shuff_ind, s_dim=s_dim, a_dim=a_dim) 
         elif mode == 'reverse':
             step_action = recon_index(act=action, type='reverse')
         else:
