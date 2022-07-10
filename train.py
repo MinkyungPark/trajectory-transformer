@@ -3,13 +3,17 @@ import math
 import argparse
 import datetime
 import dill
+import json
 
+import numpy as np
 import torch
 from torch.utils.data.dataloader import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 from model import GPT, GPTConfig
-from dataset import DiscretizedDataset
+from dataset import DiscretizedDataset, load_environment
 from utils import set_seed, check_dir, to, Timer
+from plan import plan
 
 
 parser = argparse.ArgumentParser()
@@ -23,7 +27,7 @@ parser.add_argument('--n_layer', type=int, default=4)
 parser.add_argument('--n_head', type=int, default=4)
 
 parser.add_argument('--n_epochs_ref', type=int, default=50)
-parser.add_argument('--n_saves', type=int, default=3)
+parser.add_argument('--n_saves', type=int, default=5)
 parser.add_argument('--device', type=str, default='cuda:3')
 
 parser.add_argument('--n_embd', type=int, default=32)
@@ -95,6 +99,8 @@ class Trainer:
         for k,v in kwargs.items():
             setattr(self, k, v)
         dill.dump(kwargs, open(savepath + '/trainer_config.dill', 'wb'))
+        
+        self.writer = SummaryWriter(savepath)
 
     def get_optimizer(self, model):
         if self.optimizer is None:
@@ -160,6 +166,21 @@ class Trainer:
 
             self.n_epochs += 1
 
+        # eval
+        total_returns = []
+        for i in range(3):
+            score, t, total_reward, terminal = plan(obs_dim, act_dim, args.mode, plan_freq=1, discretizer=dataset.discretizer, 
+                prefix_context=True, model=model.module, horizon=15, beam_width=128, n_expand=2,
+                discount=dataset.discount, max_context_transitions=5, env=load_environment(args.dataset), T=500)
+            total_returns.append(total_reward)
+            
+            json_data = {'normalized_score': score, 'step': t, 'total_return': total_reward, 'terminal': terminal, 'epoch': self.n_epochs}
+            json.dump(json_data, open(savepath + '/rollout_eval.json', 'w'), indent=2, sort_keys=True)
+
+        self.writer.add_scalar('Train/eval_return', np.mean(total_returns), self.n_epochs)
+        self.writer.add_scalar('Train/loss', loss.item(), self.n_epochs)
+
+
 
 warmup_tokens = len(dataset) * block_size ## number of tokens seen per epoch
 final_tokens = 20 * warmup_tokens
@@ -182,7 +203,7 @@ trainer = Trainer(
 
 tr_stt = datetime.datetime.now()
 
-n_epochs = int(1e6 / len(dataset) * args.n_epochs_ref)
+n_epochs = int(1e6 / len(dataset) * args.n_epochs_ref) + 10
 save_freq = int(n_epochs // args.n_saves)
 
 for epoch in range(n_epochs):
