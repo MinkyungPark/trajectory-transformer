@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 from model import GPT, GPTConfig
 from dataset import DiscretizedDataset, load_environment
 from utils import set_seed, check_dir, to, Timer
-from plan import plan
+from search import plan
 
 
 parser = argparse.ArgumentParser()
@@ -82,6 +82,7 @@ mconf = GPTConfig(vocab_size=args.N, n_layer=args.n_layer, n_head=args.n_head, n
     block_size=block_size, observation_dim=obs_dim, action_dim=act_dim, transition_dim=transition_dim)
 
 model = GPT(config=mconf)
+mconf.seed = args.seed
 dill.dump(mconf, open(savepath + '/model_config.dill', 'wb'))
 model.to(args.device)
 
@@ -201,7 +202,7 @@ trainer = Trainer(
 
 tr_stt = datetime.datetime.now()
 
-n_epochs = int(1e6 / len(dataset) * args.n_epochs_ref) + 10
+n_epochs = int(1e6 / len(dataset) * args.n_epochs_ref)
 save_freq = int(n_epochs // args.n_saves)
 
 for epoch in range(n_epochs):
@@ -213,6 +214,6 @@ for epoch in range(n_epochs):
     print(f'Saving model to {statepath}')
     state = model.state_dict()
     torch.save(state, statepath)
-
-json.dump(trainer.json_data, open(savepath + '/rollout_eval.json', 'w'), indent=2, sort_keys=True)
+    json.dump(trainer.json_data, open(savepath + '/rollout_eval.json', 'w'), indent=2, sort_keys=True)
+    
 print(f'training start-time: {tr_stt} | training end-time : {datetime.datetime.now()}')

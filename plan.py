@@ -6,7 +6,7 @@ import json
 import torch
 from model import GPT
 from dataset import load_environment
-from utils import check_dir
+from utils import check_dir, set_seed
 from search import plan
 
 parser = argparse.ArgumentParser()
@@ -51,6 +51,7 @@ a_dim = dconf.action_dim
 
 # Load Model Config & Model
 mconf = dill.load(open(loadpath + '/model_config.dill', 'rb'))
+set_seed(mconf.seed)
 model = GPT(mconf)
 model.load_state_dict(torch.load(loadpath + '/state_'+ str(args.model_epoch) +'.pt'))
 model.to(torch.device('cuda'))

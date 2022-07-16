@@ -6,7 +6,12 @@ import numpy as np
 import torch
 
 
-def set_seed(seed):
+def set_seed(seed, env=None):
+    if env is not None:
+        env.seed(seed)
+        env.action_space.seed(seed)
+
+    os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
