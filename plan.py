@@ -20,8 +20,8 @@ def recon_index(obs=np.array([]), act=np.array([]), type=None, shuff_ind=None, s
         pass # error
 
 
-def plan(s_dim, a_dim, mode, plan_freq, discretizer, shuff_ind,
-        prefix_context, model, horizon, beam_width, n_expand,
+def plan(s_dim, a_dim, mode, plan_freq, discretizer,
+        shuff_ind, prefix_context, model, horizon, beam_width, n_expand,
         discount, max_context_transitions, env,
         k_obs=1, k_act=None, cdf_obs=None, cdf_act=0.6, percentile='mean', T=None):
 

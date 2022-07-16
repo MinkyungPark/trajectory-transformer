@@ -87,7 +87,6 @@ model = GPT(config=mconf)
 dill.dump(mconf, open(savepath + '/model_config.dill', 'wb'))
 model.to(args.device)
 
-
 ################# Trainer #################
 
 class Trainer:
@@ -168,10 +167,11 @@ class Trainer:
             self.n_epochs += 1
 
         # eval
+        shuff_ind = dataset.shuff_ind if args.mode == 'shuffle' else None
         total_returns = []
-        for i in range(3):
+        for _ in range(3):
             score, t, total_reward, terminal = plan(obs_dim, act_dim, args.mode, plan_freq=1, discretizer=dataset.discretizer, 
-                shuff_ind=dataset.shuff_ind, prefix_context=True, model=model.module, horizon=15, beam_width=128, n_expand=2,
+                shuff_ind=shuff_ind, prefix_context=True, model=model.module, horizon=15, beam_width=128, n_expand=2,
                 discount=dataset.discount, max_context_transitions=5, env=load_environment(args.dataset), T=500)
             total_returns.append(total_reward)
             
