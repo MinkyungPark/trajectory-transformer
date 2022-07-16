@@ -49,7 +49,6 @@ def update_context(context, discretizer, observation, action, reward, max_contex
     return context
 
 
-# action = shuffle(act=action, type='reverse') if args.mode == 'shuffle' else action
 
 
 REWARD_DIM = VALUE_DIM = 1
@@ -294,3 +293,56 @@ def sample_n(model, x, N, **sample_kwargs):
         probs[:, n] = p
 
     return x, probs
+
+
+def plan(s_dim, a_dim, plan_freq, discretizer,
+        prefix_context, model, horizon, beam_width, n_expand,
+        discount, max_context_transitions, env,
+        k_obs=1, k_act=None, cdf_obs=None, cdf_act=0.6, percentile='mean', T=None):
+
+    observation = env.reset()
+    total_reward = 0
+    context = []
+    value_fn = lambda x: discretizer.value_fn(x, percentile)
+    if not T: T = env.max_episode_steps
+
+    for t in range(T):
+        if t % plan_freq == 0:
+            ## concatenate previous transitions and current observations to input to model
+            prefix = make_prefix(discretizer, context, observation, prefix_context)
+
+            ## sample sequence from model beginning with `prefix`
+            sequence = beam_plan(
+                model, value_fn, prefix,
+                horizon, beam_width, n_expand, s_dim, a_dim,
+                discount, max_context_transitions,
+                k_obs=k_obs, k_act=k_act, cdf_obs=cdf_obs, cdf_act=cdf_act,
+            )
+        else:
+            sequence = sequence[1:]
+
+        ## [ horizon x transition_dim ] convert sampled tokens to continuous trajectory
+        sequence_recon = discretizer.reconstruct(sequence)
+
+        ## [ action_dim ] index into sampled trajectory to grab first action
+        action = extract_actions(sequence_recon, s_dim, a_dim, t=0)
+
+        ## execute action in environment
+        next_observation, reward, terminal, _ = env.step(action)
+
+        ## update return
+        total_reward += reward
+        score = env.get_normalized_score(total_reward)
+
+        ## update rollout observations and context transitions
+        context = update_context(context, discretizer, observation, action, reward, max_context_transitions)
+
+        print(
+            f'[ plan ] timestep: {t} / {T} | reward: {reward:.2f} | total Reward: {total_reward:.2f} | normalized_score: {score:.4f} | \n'
+        )
+
+        if terminal: break
+
+        observation = next_observation
+
+    return score, t, total_reward, terminal

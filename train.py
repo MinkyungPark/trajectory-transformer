@@ -20,7 +20,6 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--dataset', type=str, default='halfcheetah-medium-expert-v2')
 parser.add_argument('--max_path_length', type=int, default=1000)
-parser.add_argument('--mode', type=str, default='base')
 parser.add_argument('--N', type=int, default=100)
 parser.add_argument('--discount', type=float, default=0.99)
 parser.add_argument('--n_layer', type=int, default=4)
@@ -51,7 +50,7 @@ parser.add_argument('--value_weight', type=int, default=1)
 
 args = parser.parse_args()
 set_seed(args.seed)
-savepath = check_dir(os.path.join('logs', args.dataset, args.mode)) # + '/data_config.pkl'
+savepath = check_dir(os.path.join('logs', args.dataset, 'base'))
 
 
 ################# Dataset #################
@@ -67,7 +66,6 @@ dataset = DiscretizedDataset(
     step=args.step,
     discount=args.discount,
     max_path_length=args.max_path_length,
-    mode=args.mode,
 )
 
 obs_dim = dataset.s_dim
@@ -170,8 +168,8 @@ class Trainer:
         # eval
         total_returns = []
         for i in range(3):
-            score, t, total_reward, terminal = plan(obs_dim, act_dim, args.mode, plan_freq=1, discretizer=dataset.discretizer, 
-                shuff_ind=dataset.shuff_ind, prefix_context=True, model=model.module, horizon=15, beam_width=128, n_expand=2,
+            score, t, total_reward, terminal = plan(obs_dim, act_dim, plan_freq=1, discretizer=dataset.discretizer, 
+                prefix_context=True, model=model.module, horizon=15, beam_width=128, n_expand=2,
                 discount=dataset.discount, max_context_transitions=5, env=load_environment(args.dataset), T=500)
             total_returns.append(total_reward)
             

@@ -91,13 +91,12 @@ def load_environment(name):
 ######################################################## Dataset
 class SequenceDataset(torch.utils.data.Dataset):
 
-    def __init__(self, env, sequence_length=250, step=10, discount=0.99, max_path_length=1000, penalty=None, mode='base'):
+    def __init__(self, env, sequence_length=250, step=10, discount=0.99, max_path_length=1000, penalty=None):
         print(f'[ datasets/sequence ] Sequence length: {sequence_length} | Step: {step} | Max path length: {max_path_length}')
         self.env = env = load_environment(env) if type(env) is str else env
         self.sequence_length = sequence_length
         self.step = step
         self.max_path_length = max_path_length
-        self.mode = mode
         
         print(f'[ dataset/sequence ] Loading...', end=' ', flush=True)
         dataset = qlearning_dataset_with_timeouts(env.unwrapped, terminate_on_end=True)
@@ -119,14 +118,6 @@ class SequenceDataset(torch.utils.data.Dataset):
         
         self.s_dim = observations.shape[1]
         self.a_dim = actions.shape[1]
-
-        ## shuffle tokens
-        if self.mode == 'shuffle':
-            s, a = np.arange(self.s_dim), np.arange(self.s_dim, self.s_dim + self.a_dim)
-            np.random.shuffle(s)
-            np.random.shuffle(a)
-            c = np.concatenate((s,a, np.array([self.s_dim + self.a_dim, self.s_dim + self.a_dim + 1])))
-            self.shuff_ind = c
         
         ## terminal penalty
         if penalty is not None:
@@ -196,18 +187,6 @@ class DiscretizedDataset(SequenceDataset):
 
         joined = self.joined_segmented[path_ind, start_ind:end_ind:self.step]
         terminations = self.termination_flags[path_ind, start_ind:end_ind:self.step]
-
-        if self.mode == 'shuffle':
-            for i in range(joined.shape[0]):
-                joined[i] = joined[i, self.shuff_ind]
-        
-        if self.mode == 'reverse':
-            for i in range(joined.shape[0]):
-                # state reverse
-                joined[i][:self.s_dim] = np.flip(joined[i][:self.s_dim])
-                # action reverse
-                joined[i][self.s_dim : self.s_dim + self.a_dim] = np.flip(joined[i][self.s_dim : self.s_dim + self.a_dim])
-
         joined_discrete = self.discretizer.discretize(joined)
 
         ## replace with termination token if the sequence has ended
