@@ -46,12 +46,16 @@ print(f'Dataset [{args.dataset}] / Model : [{args.model_path}/model_{args.model_
 
 # Load Dataset Config
 dconf = dill.load(open(loadpath + '/data_config.dill', 'rb'))
-s_dim = dconf.observation_dim
-a_dim = dconf.action_dim
+try:
+        s_dim = dconf.s_dim
+        a_dim = dconf.a_dim
+except:
+        s_dim = dconf.observation_dim
+        a_dim = dconf.action_dim
 
 # Load Model Config & Model
 mconf = dill.load(open(loadpath + '/model_config.dill', 'rb'))
-set_seed(mconf.seed)
+# set_seed(mconf.seed)
 model = GPT(mconf)
 model.load_state_dict(torch.load(loadpath + '/state_'+ str(args.model_epoch) +'.pt'))
 model.to(torch.device('cuda'))
