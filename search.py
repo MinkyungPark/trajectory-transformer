@@ -2,21 +2,21 @@ import torch
 import numpy as np
 from utils import to_torch
 
-def make_prefix(discretizer, context, obs, prefix_context=True):
+
+REWARD_DIM = VALUE_DIM = 1
+VALUE_PLACEHOLDER = 1e6
+
+def make_prefix(discretizer, context, obs, device, prefix_context=True):
     observation_dim = obs.size
-
-    #############################################3
-    
     obs_discrete = discretizer.discretize(obs, subslice=[0, observation_dim])
-    obs_discrete = to_torch(obs_discrete, dtype=torch.long)
-
+    obs_discrete = to_torch(obs_discrete, dtype=torch.long, device=device)
+    
     if prefix_context:
         prefix = torch.cat(context + [obs_discrete], dim=-1)
     else:
         prefix = obs_discrete
 
     return prefix
-
 
 def extract_actions(x, observation_dim, action_dim, t=None):
     assert x.shape[1] == observation_dim + action_dim + 2
@@ -26,8 +26,7 @@ def extract_actions(x, observation_dim, action_dim, t=None):
     else:
         return actions
 
-VALUE_PLACEHOLDER = 1e6
-def update_context(context, discretizer, observation, action, reward, max_context_transitions):
+def update_context(context, discretizer, observation, action, reward, max_context_transitions, device):
     '''
         context : list of transitions
             [ tensor( transition_dim ), ... ]
@@ -38,7 +37,7 @@ def update_context(context, discretizer, observation, action, reward, max_contex
 
     ## discretize transition and convert to torch tensor
     transition_discrete = discretizer.discretize(transition)
-    transition_discrete = to_torch(transition_discrete, dtype=torch.long)
+    transition_discrete = to_torch(transition_discrete, dtype=torch.long, device=device)
 
     ## add new transition to context
     context.append(transition_discrete)
@@ -48,10 +47,6 @@ def update_context(context, discretizer, observation, action, reward, max_contex
 
     return context
 
-
-
-
-REWARD_DIM = VALUE_DIM = 1
 @torch.no_grad()
 def beam_plan(
     model, value_fn, x,
@@ -117,15 +112,6 @@ def beam_plan(
         ## sample next observation (unless we have reached the end of the planning horizon)
         if t < n_steps - 1:
             x, _ = sample_n(model, x, observation_dim, topk=k_obs, cdf=cdf_obs, **sample_kwargs)
-
-        ## logging
-        # progress.update({
-        #     'x': list(x.shape),
-        #     'vmin': values.min(), 'vmax': values.max(),
-        #     'vtmin': V_t.min(), 'vtmax': V_t.max(),
-        #     'discount': discount
-        # })
-
 
     ## [ batch_size x (n_context + n_steps) x transition_dim ]
     x = x.view(beam_width, -1, transition_dim)
@@ -295,21 +281,33 @@ def sample_n(model, x, N, **sample_kwargs):
     return x, probs
 
 
-def plan(s_dim, a_dim, plan_freq, discretizer,
-        prefix_context, model, horizon, beam_width, n_expand,
-        discount, max_context_transitions, env,
-        k_obs=1, k_act=None, cdf_obs=None, cdf_act=0.6, percentile='mean', T=None):
+def plan(
+    env, model,
+    s_dim, a_dim,
+    plan_freq, 
+    discretizer,
+    prefix_context, 
+    horizon, 
+    beam_width, 
+    n_expand,
+    max_context_transitions,
+    discount=0.99, 
+    k_obs=1, k_act=None, 
+    cdf_obs=None, cdf_act=0.6, 
+    percentile='mean',
+    device='cpu'
+    ):
 
     observation = env.reset()
-    total_reward = 0
+    total_reward = 0.0
     context = []
     value_fn = lambda x: discretizer.value_fn(x, percentile)
-    if not T: T = env.max_episode_steps
+    T = env.max_episode_steps
 
     for t in range(T):
         if t % plan_freq == 0:
             ## concatenate previous transitions and current observations to input to model
-            prefix = make_prefix(discretizer, context, observation, prefix_context)
+            prefix = make_prefix(discretizer, context, observation, device, prefix_context)
 
             ## sample sequence from model beginning with `prefix`
             sequence = beam_plan(
@@ -335,7 +333,7 @@ def plan(s_dim, a_dim, plan_freq, discretizer,
         score = env.get_normalized_score(total_reward)
 
         ## update rollout observations and context transitions
-        context = update_context(context, discretizer, observation, action, reward, max_context_transitions)
+        context = update_context(context, discretizer, observation, action, reward, max_context_transitions, device)
 
         print(
             f'[ plan ] timestep: {t} / {T} | reward: {reward:.2f} | total Reward: {total_reward:.2f} | normalized_score: {score:.4f} | \n'
@@ -345,4 +343,4 @@ def plan(s_dim, a_dim, plan_freq, discretizer,
 
         observation = next_observation
 
-    return score, t, total_reward, terminal
+    return score, t, total_reward, terminal, context

@@ -108,7 +108,7 @@ class QuantileDiscretizer:
 		start, end = subslice
 		thresholds = self.thresholds[:, start:end]
 
-		gt = x[None] >= thresholds[:,None]
+		gt = x[None] >= thresholds[:,None] # (1, B, obs_dim) >= (N, 1, B, obs_dim) bool mat
 		indices = largest_nonzero_index(gt, dim=0)
 
 		if indices.min() < 0 or indices.max() >= self.N:

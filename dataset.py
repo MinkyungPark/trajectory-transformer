@@ -1,10 +1,7 @@
 import os
 import torch
-import dill
-
-import numpy as np
 import gym
-
+import numpy as np
 from utils import to_torch
 from preprocessing import segment, QuantileDiscretizer
 
@@ -175,11 +172,13 @@ class SequenceDataset(torch.utils.data.Dataset):
 
 class DiscretizedDataset(SequenceDataset):
 
-    def __init__(self, savepath, *args, N=50, **kwargs):
+    def __init__(self, *args, N=50, **kwargs):
         super().__init__(*args, **kwargs)
         self.N = N
         self.discretizer = QuantileDiscretizer(self.joined_raw, N)
-        dill.dump(self, open(savepath + '/data_config.dill', 'wb'))
+        
+    def get_discretizer(self):
+        return self.discretizer
         
     def __getitem__(self, idx):
         path_ind, start_ind, end_ind = self.indices[idx]
