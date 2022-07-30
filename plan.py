@@ -37,7 +37,7 @@ args = parser.parse_args()
 loadpath = os.path.join(args.loadpath, args.dataset, f'{args.model_path}_{args.seed}')
 
 # get the last model
-file_list = [f for f in os.listdir(loadpath) if 'state' in f]
+file_list = [f for f in os.listdir(loadpath + '/models/') if 'state' in f]
 epoch_list = []
 for f in file_list:
     splited = f.split('_')[1]
@@ -60,7 +60,7 @@ mconf = dill.load(open(loadpath + '/model_config.dill', 'rb'))
 set_seed(args.seed)
 
 model = GPT(mconf)
-model.load_state_dict(torch.load(loadpath + '/state_'+ str(args.model_epoch) +'.pt'))
+model.load_state_dict(torch.load(loadpath + '/models/state_'+ str(args.model_epoch) +'.pt'))
 model.to(torch.device(args.device))
 
 env = load_environment(args.dataset)
